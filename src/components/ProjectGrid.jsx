@@ -1,35 +1,48 @@
 // src/components/ProjectGrid.jsx
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../services/supabase';
 
 export default function ProjectGrid() {
-  // Carrega os projetos salvos no navegador (localStorage) ou começa vazio
-  const [projects, setProjects] = useState(() => {
-    const saved = localStorage.getItem('geolobo_portfolio_projects');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPostOpen, setIsPostOpen] = useState(false);
   const [password, setPassword] = useState('');
 
-  // Estados do formulário de nova publicação
+  // Formulário de nova publicação
   const [title, setTitle] = useState('');
   const [image, setImage] = useState('');
   const [description, setDescription] = useState('');
-  const [projectUrl, setProjectUrl] = useState(''); // Link do site/projeto
+  const [projectUrl, setProjectUrl] = useState('');
 
-  // Estado para o modal de detalhes ao clicar na publicação
+  // Modal de detalhes
   const [selectedProject, setSelectedProject] = useState(null);
 
   const ADMIN_SECRET = 'geolobo2026';
 
-  // Salva no localStorage sempre que houver alteração nos projetos
+  // Buscar projetos do Supabase ao carregar a página
   useEffect(() => {
-    localStorage.setItem('geolobo_portfolio_projects', JSON.stringify(projects));
-  }, [projects]);
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar projetos:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -43,31 +56,44 @@ export default function ProjectGrid() {
     }
   };
 
-  const handleAddPost = (e) => {
+  const handleAddPost = async (e) => {
     e.preventDefault();
     if (!title || !image) return;
 
-    const newProject = {
-      id: Date.now(),
-      title,
-      image,
-      description,
-      project_url: projectUrl,
-      likes: Math.floor(Math.random() * 50) + 1
-    };
+    try {
+      const newProject = {
+        title,
+        image,
+        description,
+        project_url: projectUrl,
+        likes: 1
+      };
 
-    setProjects([newProject, ...projects]);
-    setTitle('');
-    setImage('');
-    setDescription('');
-    setProjectUrl('');
-    setIsPostOpen(false);
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([newProject])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setProjects([data[0], ...projects]);
+      }
+
+      setTitle('');
+      setImage('');
+      setDescription('');
+      setProjectUrl('');
+      setIsPostOpen(false);
+    } catch (error) {
+      alert('Erro ao cadastrar projeto: ' + error.message);
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       
-      {/* Abas e Área de Ações */}
+      {/* Abas e Ações */}
       <div className="flex justify-between items-center border-t border-zinc-800 mb-6">
         <div className="flex gap-12 text-sm font-semibold tracking-wider text-zinc-400">
           <button className="flex items-center gap-2 py-3 border-t-2 border-white text-white -mt-[1px]">
@@ -87,12 +113,12 @@ export default function ProjectGrid() {
         )}
       </div>
 
-      {/* Modal de Login Secreto */}
+      {/* Modal de Login */}
       {isLoginOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6 text-zinc-100 shadow-2xl">
             <h3 className="text-lg font-semibold mb-2">Acesso Restrito 🔒</h3>
-            <p className="text-xs text-zinc-400 mb-4">Digite a senha de administrador para gerenciar o portfólio.</p>
+            <p className="text-xs text-zinc-400 mb-4">Digite a senha de administrador.</p>
             
             <form onSubmit={handleLogin} className="space-y-4">
               <input 
@@ -123,7 +149,7 @@ export default function ProjectGrid() {
         </div>
       )}
 
-      {/* Modal de Nova Publicação (Com o input de Link) */}
+      {/* Modal de Nova Publicação */}
       {isPostOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full p-6 text-zinc-100 shadow-2xl">
@@ -136,7 +162,7 @@ export default function ProjectGrid() {
                   type="text" 
                   value={title} 
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Bíblia Online"
+                  placeholder="Ex: Portfólio Dev"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
                   required
                 />
@@ -148,29 +174,29 @@ export default function ProjectGrid() {
                   type="url" 
                   value={image} 
                   onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://i.imgur.com/..."
+                  placeholder="https://..."
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Link do Site / Projeto (Deploy ou GitHub)</label>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Link do Site / Projeto</label>
                 <input 
                   type="url" 
                   value={projectUrl} 
                   onChange={(e) => setProjectUrl(e.target.value)}
-                  placeholder="https://meusite.com ou https://github.com/..."
+                  placeholder="https://..."
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Descrição / Legenda Técnica</label>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Descrição / Legenda</label>
                 <textarea 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Tecnologias utilizadas..."
+                  placeholder="Tecnologias..."
                   rows="3"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
                 />
@@ -188,7 +214,7 @@ export default function ProjectGrid() {
                   type="submit" 
                   className="bg-sky-600 hover:bg-sky-500 text-sm font-semibold px-4 py-2 rounded-lg transition"
                 >
-                  Publicar
+                  Publicar no Supabase
                 </button>
               </div>
             </form>
@@ -196,7 +222,7 @@ export default function ProjectGrid() {
         </div>
       )}
 
-      {/* Modal de Detalhes ao Clicar na Publicação */}
+      {/* Modal de Detalhes */}
       {selectedProject && (
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full p-6 text-zinc-100 shadow-2xl space-y-4">
@@ -210,14 +236,12 @@ export default function ProjectGrid() {
               </button>
             </div>
 
-            {/* Imagem Ampliada */}
             <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
               <img src={selectedProject.image} alt={selectedProject.title} className="w-full h-full object-contain" />
             </div>
 
-            <p className="text-xs text-zinc-300">{selectedProject.description || "Sem descrição técnica informada."}</p>
+            <p className="text-xs text-zinc-300">{selectedProject.description || "Sem descrição informada."}</p>
 
-            {/* Opções de Ação */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-zinc-800">
               <a 
                 href={selectedProject.image} 
@@ -247,15 +271,15 @@ export default function ProjectGrid() {
         </div>
       )}
 
-      {/* Grade estilo feed ou mensagem de vazio */}
+      {/* Grade de Listagem */}
       {loading ? (
         <div className="text-center py-16 text-zinc-500">
-          <p className="text-sm">Carregando projetos...</p>
+          <p className="text-sm">Carregando projetos do Supabase...</p>
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-16 text-zinc-600 border border-dashed border-zinc-900 rounded-xl">
-          <p className="text-sm font-medium">Nenhum projeto publicado no momento.</p>
-          <p className="text-xs text-zinc-700 mt-1">Volte em breve para conferir as novidades! 🚀</p>
+          <p className="text-sm font-medium">Nenhum projeto cadastrado no banco de dados.</p>
+          <p className="text-xs text-zinc-700 mt-1">Faça login como admin para adicionar o primeiro!</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 md:gap-4">
@@ -276,7 +300,7 @@ export default function ProjectGrid() {
         </div>
       )}
 
-      {/* Atalho Secreto no Rodapé */}
+      {/* Atalho Admin no Rodapé */}
       <div className="mt-12 text-center">
         <button 
           onClick={() => setIsLoginOpen(true)}
