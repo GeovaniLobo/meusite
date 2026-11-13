@@ -99,7 +99,7 @@ export default function ProjectGrid() {
         <div className="w-28 h-28 rounded-full p-[2px] bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 mb-4 shadow-xl">
           <div className="w-full h-full rounded-full bg-zinc-950 overflow-hidden flex items-center justify-center">
             <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400" 
+              src="https://i.imgur.com/xobLknJ.jpeg" 
               alt="Geovani Lobo" 
               className="w-full h-full object-cover"
             />
